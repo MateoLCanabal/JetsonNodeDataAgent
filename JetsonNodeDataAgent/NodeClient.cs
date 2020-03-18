@@ -6,10 +6,10 @@ using System.Threading;
 namespace JetsonNodeDataAgent
 {
     /// <summary>
-    /// <see cref="Node"/> represents a single node in the cluster and obtain and sends
+    /// <see cref="NodeClient"/> represents a single node in the cluster and obtain and sends
     /// utilization statistics to the master node.
     /// </summary>
-    class Node
+    class NodeClient
     {
         private String host_name;
         private int num_cores;
@@ -19,13 +19,13 @@ namespace JetsonNodeDataAgent
         private int frequency;          //Hz
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Node"/> class.
+        /// Initializes a new instance of the <see cref="NodeClient"/> class.
         /// </summary>
         /// <remarks>
         /// Initializes frequency to a default of 1 Hz and obtains the rest of
         /// the values automatically.
         /// </remarks>
-        public Node()
+        public NodeClient()
         {
             frequency = 1;                  //1 Hz is default frequency
             host_name = Dns.GetHostName();
@@ -212,7 +212,7 @@ namespace JetsonNodeDataAgent
         /// </summary>
         static void Main(string[] args)
         {
-            Node myProgram = new Node();
+            NodeClient myProgram = new NodeClient();
             while(true)
             {
                 Thread.Sleep(500 / myProgram.frequency);    // Wait half period. Other half in CPU usage function
