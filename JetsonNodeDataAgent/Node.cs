@@ -5,7 +5,11 @@ using System.Threading;
 
 namespace JetsonNodeDataAgent
 {
-    class Program
+    /// <summary>
+    /// <see cref="Node"/> represents a single node in the cluster and obtain and sends
+    /// utilization statistics to the master node.
+    /// </summary>
+    class Node
     {
         private String host_name;
         private int num_cores;
@@ -14,7 +18,14 @@ namespace JetsonNodeDataAgent
         private uint total_mem;         //MB
         private int frequency;          //Hz
 
-        public Program()
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Node"/> class.
+        /// </summary>
+        /// <remarks>
+        /// Initializes frequency to a default of 1 Hz and obtains the rest of
+        /// the values automatically.
+        /// </remarks>
+        public Node()
         {
             frequency = 1;                  //1 Hz is default frequency
             host_name = Dns.GetHostName();
@@ -23,8 +34,17 @@ namespace JetsonNodeDataAgent
             cpu_usage = new float[num_cores];
         }
 
+        /// <summary>
+        /// ChangeFrequency accepts an int value for frequency as an argument and sets Program's value to it.
+        /// </summary>
+        /// <param name="freq"></param>
         public void ChangeFrequency(int freq) => frequency = freq;  //replace eventually with thread that listens for JSON from master. Also make threadsafe for that.
 
+        /// <summary>
+        /// SendData currently prints out node values for debugging purposes, but in its final
+        /// form, it will transmit JSON files containing the data to the master node running
+        /// JetsonService.
+        /// </summary>
         private void SendData()
         {
             //replace eventually with generating JSON with data and sending it via HTTPS to master node
@@ -38,6 +58,9 @@ namespace JetsonNodeDataAgent
             }
         }
 
+        /// <summary>
+        /// UpdateMemory updates the value of the used memory.
+        /// </summary>
         private void UpdateMemory()
         {
             string cat_proc_meminfo_output = Bash("cat /proc/meminfo");
@@ -57,6 +80,9 @@ namespace JetsonNodeDataAgent
             }
         }
 
+        /// <summary>
+        /// UpdateCPUUsage updates the value of each core's CPU usage.
+        /// </summary>
         private void UpdateCPUUsage()
         {
             // Find phase 1 then phase 2 in order to find change.
@@ -121,11 +147,17 @@ namespace JetsonNodeDataAgent
             }
         }
 
+        /// <summary>
+        /// DetermineNumCores finds the number of cores on the system.
+        /// </summary>
         private int DetermineNumCores()
         {
             return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
         }
 
+        /// <summary>
+        /// DetermineMemTotal finds the total amount of memory of the system.
+        /// </summary>
         private uint DetermineMemTotal()
         {
             string cat_proc_meminfo_output = Bash("cat /proc/meminfo");
@@ -146,6 +178,11 @@ namespace JetsonNodeDataAgent
             return 0;
         }
 
+        /// <summary>
+        /// Bash is a helper function which executes a bash command and returns the output
+        /// as a string.
+        /// </summary>
+        /// /// <param name="cmd"></param>
         public static string Bash(string cmd)      // Adapted from https://loune.net/2017/06/running-shell-bash-commands-in-net-core/
         {
             var escapedArgs = cmd.Replace("\"", "\\\"");
@@ -169,9 +206,13 @@ namespace JetsonNodeDataAgent
             return result;
         }
 
+        /// <summary>
+        /// Main will update the data and transmit the data to JetsonService in an
+        /// infinite loop.
+        /// </summary>
         static void Main(string[] args)
         {
-            Program myProgram = new Program();
+            Node myProgram = new Node();
             while(true)
             {
                 Thread.Sleep(500 / myProgram.frequency);    // Wait half period. Other half in CPU usage function
