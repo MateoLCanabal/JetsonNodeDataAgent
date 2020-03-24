@@ -1,0 +1,3 @@
+[submodule "JetsonModels"]
+	path = JetsonModels
+	url = https://MateoLCanabal@github.com/arvinddraffen/JetsonModels.git
