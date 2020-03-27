@@ -6,6 +6,13 @@ using System.Threading;
 using RestSharp;
 using System.Collections.Generic;
 
+struct UpdateMessage
+{
+    public uint CID, NID, freemem, usedmem;
+    public String NIP;
+    public float[] cpu_util;
+};
+
 namespace JetsonNodeDataAgent
 {
     /// <summary>
@@ -66,42 +73,19 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void SendData(Object stateInfo)
         {
-            var node = new Node()
-            {
-                Id = NodeID,
-                IPAddress = GetLocalIPAddress()
-            };
-
-            var cores = new List<CpuCore>();
-            for (int i = 0; i < cpu_usage.Length; i++)
-            {
-                cores.Add(new CpuCore() { CoreNumber = i, UtilizationPercentage = cpu_usage[i] });
-            }
-
-            var nodeUtilization = new NodeUtilization()
-            {
-                GlobalNodeId = ClusterID * 100 + NodeID,
-                MemoryAvailable = total_mem - used_mem,
-                MemoryUsed = used_mem,
-                TimeStamp = DateTime.Now,
-                Cores = cores,
-            };
+            UpdateMessage mymessage = new UpdateMessage();
+            mymessage.CID = ClusterID;
+            mymessage.NID = NodeID;
+            mymessage.freemem = total_mem - used_mem;
+            mymessage.NIP = GetLocalIPAddress();
+            mymessage.cpu_util = cpu_usage;
 
             var request = new RestRequest();
 
             request.Method = Method.POST;
             request.AddHeader("Accept", "application/json");
             request.Parameters.Clear();
-            request.AddJsonBody(node);
-
-            ServiceClient.Execute(request);
-
-            request = new RestRequest();
-
-            request.Method = Method.POST;
-            request.AddHeader("Accept", "application/json");
-            request.Parameters.Clear();
-            request.AddJsonBody(nodeUtilization);
+            request.AddJsonBody(mymessage);
 
             ServiceClient.Execute(request);
         }
