@@ -4,13 +4,13 @@ using System.Net.Sockets;
 using System.Diagnostics;
 using System.Threading;
 using RestSharp;
-using System.Collections.Generic;
 
 struct UpdateMessage
 {
-    public uint CID, NID, freemem, usedmem;
-    public String NIP;
-    public float[] cpu_util;
+    public uint CID, NID;   // Cluster ID, Node ID
+    public uint freemem, usedmem;   // MB
+    public String NIP;  // IPv4 address
+    public float[] cpu_util;    // %
 };
 
 namespace JetsonNodeDataAgent
@@ -67,8 +67,7 @@ namespace JetsonNodeDataAgent
         }
 
         /// <summary>
-        /// SendData currently prints out node values for debugging purposes, but in its final
-        /// form, it will transmit JSON files containing the data to the master node running
+        /// SendData transmits JSON files containing the data to the master node running
         /// JetsonService.
         /// </summary>
         private void SendData(Object stateInfo)
@@ -95,19 +94,18 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void UpdateMemory()
         {
-            //string cat_proc_meminfo_output = Bash("cat /proc/meminfo");
-            string cat_proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            cat_proc_meminfo_output = cat_proc_meminfo_output.Replace(" ", "");     //remove spaces
-            cat_proc_meminfo_output = cat_proc_meminfo_output.Replace("kB", "");    //remove kB
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
+            proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
-            string[] entries = cat_proc_meminfo_output.Split(new Char[] { '\n' });
+            string[] entries = proc_meminfo_output.Split(new Char[] { '\n' });
 
             foreach (string s in entries)
             {
                 if (s.Contains("MemFree"))
                 {
                     string ss = s.Replace("MemFree:", "");
-                    used_mem = total_mem - UInt32.Parse(ss);
+                    used_mem = total_mem - (UInt32.Parse(ss) / 1024);   // convert to MB then subtract from total_mem
                     break;
                 }
             }
@@ -120,8 +118,7 @@ namespace JetsonNodeDataAgent
         {
             // Find phase 1 then phase 2 in order to find change.
 
-            //string cat_proc_stat_output_phase1 = Bash("cat /proc/stat");
-            string cat_proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
+            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
             
@@ -131,7 +128,7 @@ namespace JetsonNodeDataAgent
                 total_cpu_phase1[i] = 0;
             }
 
-            string[] entries1 = cat_proc_stat_output_phase1.Split(new Char[] { '\n' });
+            string[] entries1 = proc_stat_output_phase1.Split(new Char[] { '\n' });
 
             for (int i = 1; i <= num_cores; i++)
             {
@@ -149,8 +146,7 @@ namespace JetsonNodeDataAgent
 
             // Find phase 2.
 
-            //string cat_proc_stat_output_phase2 = Bash("cat /proc/stat");
-            string cat_proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
+            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
             uint[] active_cpu_phase2 = new uint[num_cores];
             uint[] total_cpu_phase2 = new uint[num_cores];
 
@@ -160,7 +156,7 @@ namespace JetsonNodeDataAgent
                 total_cpu_phase2[i] = 0;
             }
 
-            string[] entries2 = cat_proc_stat_output_phase2.Split(new Char[] { '\n' });
+            string[] entries2 = proc_stat_output_phase2.Split(new Char[] { '\n' });
 
             for (int i = 1; i <= num_cores; i++)
             {
@@ -201,19 +197,18 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private uint DetermineMemTotal()
         {
-            //string cat_proc_meminfo_output = Bash("cat /proc/meminfo");
-            string cat_proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            cat_proc_meminfo_output = cat_proc_meminfo_output.Replace(" ", "");     //remove spaces
-            cat_proc_meminfo_output = cat_proc_meminfo_output.Replace("kB", "");    //remove kB
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
+            proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
-            string[] entries = cat_proc_meminfo_output.Split(new Char[] { '\n' });
+            string[] entries = proc_meminfo_output.Split(new Char[] { '\n' });
 
             foreach (string s in entries)
             {
                 if (s.Contains("MemTotal"))
                 {
                     string ss = s.Replace("MemTotal:", "");
-                    return UInt32.Parse(ss);
+                    return UInt32.Parse(ss) / 1024; // convert to MB
                 }
             }
 
