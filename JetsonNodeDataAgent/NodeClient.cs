@@ -174,7 +174,7 @@ namespace JetsonNodeDataAgent
 
             for (int i = 0; i < num_cores; i++)
             {
-                cpu_usage[i] = (float)(active_cpu_phase2[i] - active_cpu_phase1[i]) / (total_cpu_phase2[i] - total_cpu_phase1[i]);
+                cpu_usage[i] = 100f * (float)(active_cpu_phase2[i] - active_cpu_phase1[i]) / (total_cpu_phase2[i] - total_cpu_phase1[i]);
             }
         }
 
