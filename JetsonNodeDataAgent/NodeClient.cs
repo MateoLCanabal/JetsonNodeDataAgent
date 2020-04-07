@@ -11,6 +11,8 @@ struct UpdateMessage
     public uint freemem, usedmem;   // MB
     public String NIP;  // IPv4 address
     public float[] cpu_util;    // %
+    public String OS;   // name of operating system
+    public TimeSpan period; // period of updates
 };
 
 namespace JetsonNodeDataAgent
@@ -30,6 +32,7 @@ namespace JetsonNodeDataAgent
         private String JetsonServiceIP; // Standard IPv4 address
         private uint NodeID, ClusterID;
         private RestClient ServiceClient;
+        private String OperatingSystem;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NodeClient"/> class.
@@ -51,6 +54,7 @@ namespace JetsonNodeDataAgent
             total_mem = DetermineMemTotal();
             cpu_usage = new float[num_cores];
             ServiceClient = new RestClient("https://" + JetsonServiceIP);
+            OperatingSystem = Environment.OSVersion.VersionString.ToString();
         }
 
         public static string GetLocalIPAddress() // source: https://stackoverflow.com/questions/6803073/get-local-ip-address
@@ -78,6 +82,8 @@ namespace JetsonNodeDataAgent
             mymessage.freemem = total_mem - used_mem;
             mymessage.NIP = GetLocalIPAddress();
             mymessage.cpu_util = cpu_usage;
+            mymessage.OS = OperatingSystem;
+            mymessage.period = TimeSpan.FromSeconds((double)1 / frequency);
 
             var request = new RestRequest();
 
