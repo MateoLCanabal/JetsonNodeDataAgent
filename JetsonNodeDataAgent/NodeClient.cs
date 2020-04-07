@@ -12,7 +12,7 @@ struct UpdateMessage
     public String NIP;  // IPv4 address
     public float[] cpu_util;    // %
     public String OS;   // name of operating system
-    public TimeSpan period; // period of updates
+    public TimeSpan utime; // uptime of the node
 };
 
 namespace JetsonNodeDataAgent
@@ -33,6 +33,7 @@ namespace JetsonNodeDataAgent
         private uint NodeID, ClusterID;
         private RestClient ServiceClient;
         private String OperatingSystem;
+        private TimeSpan UpTime;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NodeClient"/> class.
@@ -83,7 +84,7 @@ namespace JetsonNodeDataAgent
             mymessage.NIP = GetLocalIPAddress();
             mymessage.cpu_util = cpu_usage;
             mymessage.OS = OperatingSystem;
-            mymessage.period = TimeSpan.FromSeconds((double)1 / frequency);
+            mymessage.utime = UpTime;
 
             var request = new RestRequest();
 
@@ -184,10 +185,21 @@ namespace JetsonNodeDataAgent
             }
         }
 
+        /// <summary>
+        /// UpdateUpTime updates the node's uptime.
+        /// </summary>
+        private void UpdateUpTime()
+        {
+            string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
+            string[] entries = proc_uptime_output.Split(new Char[] { ' ' });
+            UpTime = TimeSpan.FromSeconds(Double.Parse(entries[0]));
+        }
+
         private void Update(Object stateInfo)
         {
             UpdateMemory();
             UpdateCPUUsage();
+            UpdateUpTime();
         }
 
         /// <summary>
