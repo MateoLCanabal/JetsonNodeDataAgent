@@ -3,17 +3,22 @@ using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
 using System.Threading;
-using RestSharp;
+using Nancy;
+using Nancy.Hosting.Self;
+using Newtonsoft.Json;
 
-struct UpdateMessage
+public class UpdateMessage
 {
-    public uint CID, NID;   // Cluster ID, Node ID
-    public uint freemem, usedmem;   // MB
-    public String NIP;  // IPv4 address
-    public float[] cpu_util;    // %
-    public String OS;   // name of operating system
-    public TimeSpan utime; // uptime of the node
-};
+    public uint CID { get; set; }   // Cluster ID
+    public uint NID { get; set; }   // Node ID
+    public uint freemem { get; set; }   // MB
+    public uint usedmem { get; set; }   // MB
+    public String NIP { get; set; }  // IPv4 address
+    public float[] cpuutil { get; set; }    // %
+    public String OS { get; set; }   // name of operating system
+    public TimeSpan utime { get; set; } // uptime of the node
+    public int frequency;   //Hz
+}
 
 namespace JetsonNodeDataAgent
 {
@@ -21,7 +26,7 @@ namespace JetsonNodeDataAgent
     /// <see cref="NodeClient"/> represents a single node in the cluster and obtain and sends
     /// utilization statistics to the master node.
     /// </summary>
-    class NodeClient
+    class NodeClient : NancyModule
     {
         private String host_name;
         private int num_cores;
@@ -31,9 +36,10 @@ namespace JetsonNodeDataAgent
         private int frequency;          //Hz
         private String JetsonServiceIP; // Standard IPv4 address
         private uint NodeID, ClusterID;
-        private RestClient ServiceClient;
         private String OperatingSystem;
         private TimeSpan UpTime;
+        private UpdateMessage currentMessage;
+        private NancyHost host;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NodeClient"/> class.
@@ -43,6 +49,9 @@ namespace JetsonNodeDataAgent
         /// </remarks>
         public NodeClient()
         {
+            host = new NancyHost(new Uri("http://localhost:9200"));
+            host.Start();
+
             string ConfigFile = System.IO.File.ReadAllText(@"NodeClientConfig.txt");
             string[] SplitConfigFile = ConfigFile.Split(new Char[] { '\n' });
 
@@ -54,8 +63,13 @@ namespace JetsonNodeDataAgent
             num_cores = DetermineNumCores();
             total_mem = DetermineMemTotal();
             cpu_usage = new float[num_cores];
-            ServiceClient = new RestClient("https://" + JetsonServiceIP);
             OperatingSystem = Environment.OSVersion.VersionString.ToString();
+            currentMessage = new UpdateMessage();
+
+            Get("/nodeupdate/", args =>
+            {
+                return JsonConvert.SerializeObject(currentMessage);
+            });
         }
 
         public static string GetLocalIPAddress() // source: https://stackoverflow.com/questions/6803073/get-local-ip-address
@@ -77,23 +91,14 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void SendData(Object stateInfo)
         {
-            UpdateMessage mymessage = new UpdateMessage();
-            mymessage.CID = ClusterID;
-            mymessage.NID = NodeID;
-            mymessage.freemem = total_mem - used_mem;
-            mymessage.NIP = GetLocalIPAddress();
-            mymessage.cpu_util = cpu_usage;
-            mymessage.OS = OperatingSystem;
-            mymessage.utime = UpTime;
-
-            var request = new RestRequest();
-
-            request.Method = Method.POST;
-            request.AddHeader("Accept", "application/json");
-            request.Parameters.Clear();
-            request.AddJsonBody(mymessage);
-
-            ServiceClient.Execute(request);
+            currentMessage.CID = ClusterID;
+            currentMessage.NID = NodeID;
+            currentMessage.freemem = total_mem - used_mem;
+            currentMessage.NIP = GetLocalIPAddress();
+            currentMessage.cpuutil = cpu_usage;
+            currentMessage.OS = OperatingSystem;
+            currentMessage.utime = UpTime;
+            currentMessage.frequency = frequency;
         }
 
         /// <summary>
@@ -102,6 +107,7 @@ namespace JetsonNodeDataAgent
         private void UpdateMemory()
         {
             string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -126,6 +132,7 @@ namespace JetsonNodeDataAgent
             // Find phase 1 then phase 2 in order to find change.
 
             string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
+            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
             
@@ -154,6 +161,7 @@ namespace JetsonNodeDataAgent
             // Find phase 2.
 
             string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
+            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase2 = new uint[num_cores];
             uint[] total_cpu_phase2 = new uint[num_cores];
 
@@ -191,6 +199,7 @@ namespace JetsonNodeDataAgent
         private void UpdateUpTime()
         {
             string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
+            //string proc_uptime_output = "350735.47 234388.90";
             string[] entries = proc_uptime_output.Split(new Char[] { ' ' });
             UpTime = TimeSpan.FromSeconds(Double.Parse(entries[0]));
         }
@@ -208,6 +217,7 @@ namespace JetsonNodeDataAgent
         private int DetermineNumCores()
         {
             return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
+            //return 2;
         }
 
         /// <summary>
@@ -216,6 +226,7 @@ namespace JetsonNodeDataAgent
         private uint DetermineMemTotal()
         {
             string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
