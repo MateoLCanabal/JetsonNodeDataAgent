@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Threading;
 using Nancy;
 using Nancy.Hosting.Self;
+using Nancy.Diagnostics;
 using Newtonsoft.Json;
 
 public class UpdateMessage
@@ -17,7 +18,7 @@ public class UpdateMessage
     public float[] cpuutil { get; set; }    // %
     public String OS { get; set; }   // name of operating system
     public TimeSpan utime { get; set; } // uptime of the node
-    public int frequency;   //Hz
+    public int frequency { get; set; }   //Hz
 }
 
 namespace JetsonNodeDataAgent
@@ -33,13 +34,12 @@ namespace JetsonNodeDataAgent
         private float[] cpu_usage;      //%
         private uint used_mem;          //MB
         private uint total_mem;         //MB
-        private int frequency;          //Hz
+        public int frequency;          //Hz
         private String JetsonServiceIP; // Standard IPv4 address
         private uint NodeID, ClusterID;
         private String OperatingSystem;
         private TimeSpan UpTime;
         private UpdateMessage currentMessage;
-        private NancyHost host;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NodeClient"/> class.
@@ -49,9 +49,14 @@ namespace JetsonNodeDataAgent
         /// </remarks>
         public NodeClient()
         {
-            host = new NancyHost(new Uri("http://localhost:9200"));
-            host.Start();
+            Get("/nodeupdate", arg =>
+            {
+                return JsonConvert.SerializeObject(currentMessage == null ? new UpdateMessage() : currentMessage);
+            });
+        }
 
+        public void Init()
+        {
             string ConfigFile = System.IO.File.ReadAllText(@"NodeClientConfig.txt");
             string[] SplitConfigFile = ConfigFile.Split(new Char[] { '\n' });
 
@@ -65,11 +70,6 @@ namespace JetsonNodeDataAgent
             cpu_usage = new float[num_cores];
             OperatingSystem = Environment.OSVersion.VersionString.ToString();
             currentMessage = new UpdateMessage();
-
-            Get("/nodeupdate/", args =>
-            {
-                return JsonConvert.SerializeObject(currentMessage);
-            });
         }
 
         public static string GetLocalIPAddress() // source: https://stackoverflow.com/questions/6803073/get-local-ip-address
@@ -89,7 +89,7 @@ namespace JetsonNodeDataAgent
         /// SendData transmits JSON files containing the data to the master node running
         /// JetsonService.
         /// </summary>
-        private void SendData(Object stateInfo)
+        public void SendData(Object stateInfo)
         {
             currentMessage.CID = ClusterID;
             currentMessage.NID = NodeID;
@@ -106,8 +106,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void UpdateMemory()
         {
-            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -131,8 +131,8 @@ namespace JetsonNodeDataAgent
         {
             // Find phase 1 then phase 2 in order to find change.
 
-            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
-            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
+            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
             
@@ -160,8 +160,8 @@ namespace JetsonNodeDataAgent
 
             // Find phase 2.
 
-            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
-            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
+            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase2 = new uint[num_cores];
             uint[] total_cpu_phase2 = new uint[num_cores];
 
@@ -198,13 +198,13 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void UpdateUpTime()
         {
-            string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
-            //string proc_uptime_output = "350735.47 234388.90";
+            //string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
+            string proc_uptime_output = "350735.47 234388.90";
             string[] entries = proc_uptime_output.Split(new Char[] { ' ' });
             UpTime = TimeSpan.FromSeconds(Double.Parse(entries[0]));
         }
 
-        private void Update(Object stateInfo)
+        public void Update(Object stateInfo)
         {
             UpdateMemory();
             UpdateCPUUsage();
@@ -216,8 +216,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private int DetermineNumCores()
         {
-            return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
-            //return 2;
+            //return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
+            return 2;
         }
 
         /// <summary>
@@ -225,8 +225,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private uint DetermineMemTotal()
         {
-            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -271,23 +271,34 @@ namespace JetsonNodeDataAgent
 
             return result;
         }
+    }
 
+    public class Program
+    {
         /// <summary>
         /// Main will update the data and transmit the data to JetsonService in an
         /// infinite loop.
         /// </summary>
         static void Main(string[] args)
         {
-            NodeClient myProgram = new NodeClient();
+            HostConfiguration hostConfigs = new HostConfiguration();
+            hostConfigs.UrlReservations.CreateAutomatically = true;
+            using (var nancyHost = new NancyHost(new Uri("http://localhost:9200"), new DefaultNancyBootstrapper(), hostConfigs))
+            {
+                nancyHost.Start();
 
-            var autoEventUpdate = new AutoResetEvent(false);
-            var autoEventSend = new AutoResetEvent(false);
+                NodeClient myProgram = new NodeClient();
+                myProgram.Init();
 
-            var UpdateTimer = new Timer(myProgram.Update, autoEventUpdate, 0, 1000 / myProgram.frequency);
-            var SendTimer = new Timer(myProgram.SendData, autoEventUpdate, 1000 / myProgram.frequency, 1000 / myProgram.frequency);
+                var autoEventUpdate = new AutoResetEvent(false);
+                var autoEventSend = new AutoResetEvent(false);
 
-            autoEventUpdate.WaitOne();  // neither AutoResetEvent objects will ever be set, so the threads will run indefinitely.
-            autoEventSend.WaitOne();
+                var UpdateTimer = new Timer(myProgram.Update, autoEventUpdate, 0, 1000 / myProgram.frequency);
+                var SendTimer = new Timer(myProgram.SendData, autoEventUpdate, 1000 / myProgram.frequency, 1000 / myProgram.frequency);
+
+                autoEventUpdate.WaitOne();  // neither AutoResetEvent objects will ever be set, so the threads will run indefinitely.
+                autoEventSend.WaitOne();
+            }
         }
     }
 }
