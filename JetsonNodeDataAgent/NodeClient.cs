@@ -49,10 +49,7 @@ namespace JetsonNodeDataAgent
         /// </remarks>
         public NodeClient()
         {
-            Get("/nodeupdate", arg =>
-            {
-                return JsonConvert.SerializeObject(currentMessage == null ? new UpdateMessage() : currentMessage);
-            });
+            Get("/nodeupdate", args => JsonConvert.SerializeObject(currentMessage == null ? new UpdateMessage() : currentMessage));
         }
 
         public void Init()
@@ -106,8 +103,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void UpdateMemory()
         {
-            //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -131,8 +128,8 @@ namespace JetsonNodeDataAgent
         {
             // Find phase 1 then phase 2 in order to find change.
 
-            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
-            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
+            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
             
@@ -160,8 +157,8 @@ namespace JetsonNodeDataAgent
 
             // Find phase 2.
 
-            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
-            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
+            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase2 = new uint[num_cores];
             uint[] total_cpu_phase2 = new uint[num_cores];
 
@@ -198,8 +195,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private void UpdateUpTime()
         {
-            //string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
-            string proc_uptime_output = "350735.47 234388.90";
+            string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
+            //string proc_uptime_output = "350735.47 234388.90";
             string[] entries = proc_uptime_output.Split(new Char[] { ' ' });
             UpTime = TimeSpan.FromSeconds(Double.Parse(entries[0]));
         }
@@ -216,8 +213,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private int DetermineNumCores()
         {
-            //return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
-            return 2;
+            return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
+            //return 2;
         }
 
         /// <summary>
@@ -283,7 +280,7 @@ namespace JetsonNodeDataAgent
         {
             HostConfiguration hostConfigs = new HostConfiguration();
             hostConfigs.UrlReservations.CreateAutomatically = true;
-            using (var nancyHost = new NancyHost(new Uri("http://localhost:9200"), new DefaultNancyBootstrapper(), hostConfigs))
+            using (var nancyHost = new NancyHost(new DefaultNancyBootstrapper(), hostConfigs, new Uri("http://localhost:9200")))
             {
                 nancyHost.Start();
 
