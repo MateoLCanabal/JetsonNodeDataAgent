@@ -98,6 +98,7 @@ namespace JetsonNodeDataAgent
             currentMessage.CID = ClusterID;
             currentMessage.NID = NodeID;
             currentMessage.freemem = total_mem - used_mem;
+            currentMessage.usedmem = used_mem;
             currentMessage.NIP = GetLocalIPAddress();
             currentMessage.cpuutil = cpu_usage;
             currentMessage.OS = OperatingSystem;
@@ -110,8 +111,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private static void UpdateMemory()
         {
-            //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -122,7 +123,7 @@ namespace JetsonNodeDataAgent
                 if (s.Contains("MemFree"))
                 {
                     string ss = s.Replace("MemFree:", "");
-                    used_mem = total_mem - (UInt32.Parse(ss) / 1024);   // convert to MB then subtract from total_mem
+                    used_mem = (uint)(total_mem - (float.Parse(ss) / 1024f));   // convert to MB then subtract from total_mem
                     break;
                 }
             }
@@ -135,8 +136,8 @@ namespace JetsonNodeDataAgent
         {
             // Find phase 1 then phase 2 in order to find change.
 
-            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
-            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
+            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
             
@@ -164,8 +165,8 @@ namespace JetsonNodeDataAgent
 
             // Find phase 2.
 
-            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
-            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
+            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase2 = new uint[num_cores];
             uint[] total_cpu_phase2 = new uint[num_cores];
 
@@ -202,8 +203,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private static void UpdateUpTime()
         {
-            //string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
-            string proc_uptime_output = "350735.47 234388.90";
+            string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
+            //string proc_uptime_output = "350735.47 234388.90";
             string[] entries = proc_uptime_output.Split(new Char[] { ' ' });
             UpTime = TimeSpan.FromSeconds(Double.Parse(entries[0]));
         }
@@ -220,8 +221,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private static int DetermineNumCores()
         {
-            //return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
-            return 2;
+            return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
+            //return 2;
         }
 
         /// <summary>
@@ -229,8 +230,8 @@ namespace JetsonNodeDataAgent
         /// </summary>
         private static uint DetermineMemTotal()
         {
-            //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -241,7 +242,8 @@ namespace JetsonNodeDataAgent
                 if (s.Contains("MemTotal"))
                 {
                     string ss = s.Replace("MemTotal:", "");
-                    return UInt32.Parse(ss) / 1024; // convert to MB
+                    //return UInt32.Parse(ss) / 1024; // convert to MB
+                    return (uint)(float.Parse(ss) / 1024f);
                 }
             }
 
