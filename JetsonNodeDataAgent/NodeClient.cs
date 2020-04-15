@@ -7,6 +7,7 @@ using Nancy;
 using Nancy.Hosting.Self;
 using Nancy.Diagnostics;
 using Newtonsoft.Json;
+using Nancy.Testing;
 
 public class UpdateMessage
 {
@@ -23,23 +24,34 @@ public class UpdateMessage
 
 namespace JetsonNodeDataAgent
 {
+    class NodeModule : NancyModule
+    {
+        public NodeModule()
+        {
+            Get("/nodeupdate", args => JsonConvert.SerializeObject(NodeClient.currentMessage));
+            //Get("/nodeupdate", args => "Hello World.");
+        }
+    }
+
+
     /// <summary>
     /// <see cref="NodeClient"/> represents a single node in the cluster and obtain and sends
     /// utilization statistics to the master node.
     /// </summary>
-    class NodeClient : NancyModule
+    static class NodeClient
     {
-        private String host_name;
-        private int num_cores;
-        private float[] cpu_usage;      //%
-        private uint used_mem;          //MB
-        private uint total_mem;         //MB
-        public int frequency;          //Hz
-        private String JetsonServiceIP; // Standard IPv4 address
-        private uint NodeID, ClusterID;
-        private String OperatingSystem;
-        private TimeSpan UpTime;
-        private UpdateMessage currentMessage;
+        public static String host_name;
+        public static int num_cores;
+        public static float[] cpu_usage;
+        public static uint used_mem;
+        public static uint total_mem;
+        public static int frequency;
+        public static String JetsonServiceIP;
+        public static uint NodeID;
+        public static uint ClusterID;
+        public static String OperatingSystem;
+        public static TimeSpan UpTime;
+        public static UpdateMessage currentMessage;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NodeClient"/> class.
@@ -47,12 +59,7 @@ namespace JetsonNodeDataAgent
         /// <remarks>
         /// Data is obtained from NodeClientConfig.txt or automatically.
         /// </remarks>
-        public NodeClient()
-        {
-            Get("/nodeupdate", args => JsonConvert.SerializeObject(currentMessage == null ? new UpdateMessage() : currentMessage));
-        }
-
-        public void Init()
+        public static void Init()
         {
             string ConfigFile = System.IO.File.ReadAllText(@"NodeClientConfig.txt");
             string[] SplitConfigFile = ConfigFile.Split(new Char[] { '\n' });
@@ -86,7 +93,7 @@ namespace JetsonNodeDataAgent
         /// SendData transmits JSON files containing the data to the master node running
         /// JetsonService.
         /// </summary>
-        public void SendData(Object stateInfo)
+        public static void SendData(Object stateInfo)
         {
             currentMessage.CID = ClusterID;
             currentMessage.NID = NodeID;
@@ -101,10 +108,10 @@ namespace JetsonNodeDataAgent
         /// <summary>
         /// UpdateMemory updates the value of the used memory.
         /// </summary>
-        private void UpdateMemory()
+        private static void UpdateMemory()
         {
-            string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
-            //string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
+            //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
+            string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
             proc_meminfo_output = proc_meminfo_output.Replace(" ", "");     //remove spaces
             proc_meminfo_output = proc_meminfo_output.Replace("kB", "");    //remove kB
 
@@ -124,12 +131,12 @@ namespace JetsonNodeDataAgent
         /// <summary>
         /// UpdateCPUUsage updates the value of each core's CPU usage.
         /// </summary>
-        private void UpdateCPUUsage()
+        private static void UpdateCPUUsage()
         {
             // Find phase 1 then phase 2 in order to find change.
 
-            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
-            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"/proc/stat");
+            string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
             
@@ -157,8 +164,8 @@ namespace JetsonNodeDataAgent
 
             // Find phase 2.
 
-            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
-            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
+            //string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"/proc/stat");
+            string proc_stat_output_phase2 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase2 = new uint[num_cores];
             uint[] total_cpu_phase2 = new uint[num_cores];
 
@@ -193,15 +200,15 @@ namespace JetsonNodeDataAgent
         /// <summary>
         /// UpdateUpTime updates the node's uptime.
         /// </summary>
-        private void UpdateUpTime()
+        private static void UpdateUpTime()
         {
-            string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
-            //string proc_uptime_output = "350735.47 234388.90";
+            //string proc_uptime_output = System.IO.File.ReadAllText(@"/proc/uptime");
+            string proc_uptime_output = "350735.47 234388.90";
             string[] entries = proc_uptime_output.Split(new Char[] { ' ' });
             UpTime = TimeSpan.FromSeconds(Double.Parse(entries[0]));
         }
 
-        public void Update(Object stateInfo)
+        public static void Update(Object stateInfo)
         {
             UpdateMemory();
             UpdateCPUUsage();
@@ -211,16 +218,16 @@ namespace JetsonNodeDataAgent
         /// <summary>
         /// DetermineNumCores finds the number of cores on the system.
         /// </summary>
-        private int DetermineNumCores()
+        private static int DetermineNumCores()
         {
-            return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
-            //return 2;
+            //return Int32.Parse(Bash("grep ^proc /proc/cpuinfo | wc -l"));
+            return 2;
         }
 
         /// <summary>
         /// DetermineMemTotal finds the total amount of memory of the system.
         /// </summary>
-        private uint DetermineMemTotal()
+        private static uint DetermineMemTotal()
         {
             //string proc_meminfo_output = System.IO.File.ReadAllText(@"/proc/meminfo");
             string proc_meminfo_output = System.IO.File.ReadAllText(@"fakeprocmeminfo.txt");
@@ -280,18 +287,20 @@ namespace JetsonNodeDataAgent
         {
             HostConfiguration hostConfigs = new HostConfiguration();
             hostConfigs.UrlReservations.CreateAutomatically = true;
-            using (var nancyHost = new NancyHost(new DefaultNancyBootstrapper(), hostConfigs, new Uri("http://localhost:9200")))
+            var bootstrapper = new ConfigurableBootstrapper(with =>
+            {
+                with.Module<NodeModule>();
+            });
+            using (var nancyHost = new NancyHost(bootstrapper, hostConfigs, new Uri("http://localhost:9200/")))
             {
                 nancyHost.Start();
-
-                NodeClient myProgram = new NodeClient();
-                myProgram.Init();
+                NodeClient.Init();
 
                 var autoEventUpdate = new AutoResetEvent(false);
                 var autoEventSend = new AutoResetEvent(false);
 
-                var UpdateTimer = new Timer(myProgram.Update, autoEventUpdate, 0, 1000 / myProgram.frequency);
-                var SendTimer = new Timer(myProgram.SendData, autoEventUpdate, 1000 / myProgram.frequency, 1000 / myProgram.frequency);
+                var UpdateTimer = new Timer(NodeClient.Update, autoEventUpdate, 0, 1000 / NodeClient.frequency);
+                var SendTimer = new Timer(NodeClient.SendData, autoEventUpdate, 1000 / NodeClient.frequency, 1000 / NodeClient.frequency);
 
                 autoEventUpdate.WaitOne();  // neither AutoResetEvent objects will ever be set, so the threads will run indefinitely.
                 autoEventSend.WaitOne();
