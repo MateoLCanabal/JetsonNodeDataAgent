@@ -8,6 +8,7 @@ using Nancy.Hosting.Self;
 using Nancy.Diagnostics;
 using Newtonsoft.Json;
 using Nancy.Testing;
+using RestSharp;
 
 public class UpdateMessage
 {
@@ -24,16 +25,6 @@ public class UpdateMessage
 
 namespace JetsonNodeDataAgent
 {
-    class NodeModule : NancyModule
-    {
-        public NodeModule()
-        {
-            Get("/nodeupdate", args => JsonConvert.SerializeObject(NodeClient.currentMessage));
-            //Get("/nodeupdate", args => "Hello World.");
-        }
-    }
-
-
     /// <summary>
     /// <see cref="NodeClient"/> represents a single node in the cluster and obtain and sends
     /// utilization statistics to the master node.
@@ -104,6 +95,11 @@ namespace JetsonNodeDataAgent
             currentMessage.OS = OperatingSystem;
             currentMessage.utime = UpTime;
             currentMessage.frequency = frequency;
+
+            var client = new RestClient("http://" + JetsonServiceIP);
+            var request = new RestRequest("/nodeupdate", Method.PUT);
+            request.AddJsonBody(currentMessage);
+            client.Execute(request);
         }
 
         /// <summary>
@@ -287,26 +283,16 @@ namespace JetsonNodeDataAgent
         /// </summary>
         static void Main(string[] args)
         {
-            HostConfiguration hostConfigs = new HostConfiguration();
-            hostConfigs.UrlReservations.CreateAutomatically = true;
-            var bootstrapper = new ConfigurableBootstrapper(with =>
-            {
-                with.Module<NodeModule>();
-            });
-            using (var nancyHost = new NancyHost(bootstrapper, hostConfigs, new Uri("http://localhost:9200/")))
-            {
-                nancyHost.Start();
-                NodeClient.Init();
+            NodeClient.Init();
 
-                var autoEventUpdate = new AutoResetEvent(false);
-                var autoEventSend = new AutoResetEvent(false);
+            var autoEventUpdate = new AutoResetEvent(false);
+            var autoEventSend = new AutoResetEvent(false);
 
-                var UpdateTimer = new Timer(NodeClient.Update, autoEventUpdate, 0, 1000 / NodeClient.frequency);
-                var SendTimer = new Timer(NodeClient.SendData, autoEventUpdate, 1000 / NodeClient.frequency, 1000 / NodeClient.frequency);
+            var UpdateTimer = new Timer(NodeClient.Update, autoEventUpdate, 0, 1000 / NodeClient.frequency);
+            var SendTimer = new Timer(NodeClient.SendData, autoEventUpdate, 1000 / NodeClient.frequency, 1000 / NodeClient.frequency);
 
-                autoEventUpdate.WaitOne();  // neither AutoResetEvent objects will ever be set, so the threads will run indefinitely.
-                autoEventSend.WaitOne();
-            }
+            autoEventUpdate.WaitOne();  // neither AutoResetEvent objects will ever be set, so the threads will run indefinitely.
+            autoEventSend.WaitOne();
         }
     }
 }
