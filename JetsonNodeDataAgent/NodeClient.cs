@@ -19,7 +19,7 @@ public class UpdateMessage
     public String NIP { get; set; }  // IPv4 address
     public float[] cpuutil { get; set; }    // %
     public String OS { get; set; }   // name of operating system
-    public TimeSpan utime { get; set; } // uptime of the node
+    public long utime { get; set; } // uptime of the node
     public int frequency { get; set; }   //Hz
 }
 
@@ -93,7 +93,7 @@ namespace JetsonNodeDataAgent
             currentMessage.NIP = GetLocalIPAddress();
             currentMessage.cpuutil = cpu_usage;
             currentMessage.OS = OperatingSystem;
-            currentMessage.utime = UpTime;
+            currentMessage.utime = UpTime.Ticks;
             currentMessage.frequency = frequency;
 
             var client = new RestClient("http://" + JetsonServiceIP);
