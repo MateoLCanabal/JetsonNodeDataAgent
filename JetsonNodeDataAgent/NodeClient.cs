@@ -9,6 +9,7 @@ using Nancy.Diagnostics;
 using Newtonsoft.Json;
 using Nancy.Testing;
 using RestSharp;
+using System.Runtime.Loader;
 
 public class UpdateMessage
 {
@@ -52,7 +53,7 @@ namespace JetsonNodeDataAgent
         /// </remarks>
         public static void Init()
         {
-            string ConfigFile = System.IO.File.ReadAllText(@"NodeClientConfig.txt");
+            string ConfigFile = System.IO.File.ReadAllText(@"/daemons/jetsonnodedaemon/NodeClientConfig.txt");
             string[] SplitConfigFile = ConfigFile.Split(new Char[] { '\n' });
 
             JetsonServiceIP = SplitConfigFile[0].Replace("JetsonServiceIP=", "");
@@ -136,7 +137,7 @@ namespace JetsonNodeDataAgent
             //string proc_stat_output_phase1 = System.IO.File.ReadAllText(@"fakeprocstat.txt");
             uint[] active_cpu_phase1 = new uint[num_cores];
             uint[] total_cpu_phase1 = new uint[num_cores];
-            
+
             for (int i = 0; i < num_cores; i++)
             {
                 active_cpu_phase1[i] = 0;
@@ -277,12 +278,26 @@ namespace JetsonNodeDataAgent
 
     public class Program
     {
+        private static void SigTermEventHandler(AssemblyLoadContext obj)
+        {
+            System.Console.WriteLine("Unloading...");
+        }
+
+        private static void CancelHandler(object sender, ConsoleCancelEventArgs e)
+        {
+            System.Console.WriteLine("Exiting...");
+        }
+
+
         /// <summary>
         /// Main will update the data and transmit the data to JetsonService in an
         /// infinite loop.
         /// </summary>
         static void Main(string[] args)
         {
+            AssemblyLoadContext.Default.Unloading += SigTermEventHandler; //register sigterm event handler. Don't forget to import System.Runtime.Loader!
+            Console.CancelKeyPress += CancelHandler; //register sigint event handler
+
             NodeClient.Init();
 
             var autoEventUpdate = new AutoResetEvent(false);
