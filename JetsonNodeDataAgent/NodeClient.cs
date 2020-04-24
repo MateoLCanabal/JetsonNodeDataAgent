@@ -117,9 +117,9 @@ namespace JetsonNodeDataAgent
 
             foreach (string s in entries)
             {
-                if (s.Contains("MemFree"))
+                if (s.Contains("MemAvailable"))
                 {
-                    string ss = s.Replace("MemFree:", "");
+                    string ss = s.Replace("MemAvailable:", "");
                     used_mem = (uint)(total_mem - (float.Parse(ss) / 1024f));   // convert to MB then subtract from total_mem
                     break;
                 }
